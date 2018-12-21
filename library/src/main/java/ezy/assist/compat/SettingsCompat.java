@@ -17,6 +17,7 @@
 package ezy.assist.compat;
 
 import android.Manifest;
+import android.app.Activity;
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
@@ -64,48 +65,56 @@ public class SettingsCompat {
         return setMode(context, OP_WRITE_SETTINGS, allowed);
     }
 
-    public static void manageDrawOverlays(Context context) {
+    public static void manageDrawOverlays(Context context, int requestCode) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
-            if (manageDrawOverlaysForRom(context)) {
+            if (manageDrawOverlaysForRom(context, requestCode)) {
                 return;
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
             intent.setData(Uri.parse("package:" + context.getPackageName()));
-            context.startActivity(intent);
+            if (context instanceof Activity) {
+                ((Activity) context).startActivityForResult(intent, requestCode);
+            } else {
+                context.startActivity(intent);
+            }
         }
     }
 
-    public static void manageWriteSettings(Context context) {
+    public static void manageWriteSettings(Context context, int requestCode) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Intent intent = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
             intent.setData(Uri.parse("package:" + context.getPackageName()));
-            context.startActivity(intent);
+            if (context instanceof Activity) {
+                ((Activity) context).startActivityForResult(intent, requestCode);
+            } else {
+                context.startActivity(intent);
+            }
         }
     }
 
-    private static boolean manageDrawOverlaysForRom(Context context) {
+    private static boolean manageDrawOverlaysForRom(Context context, int requestCode) {
         if (RomUtil.isMiui()) {
-            return manageDrawOverlaysForMiui(context);
+            return manageDrawOverlaysForMiui(context, requestCode);
         }
         if (RomUtil.isEmui()) {
-            return manageDrawOverlaysForEmui(context);
+            return manageDrawOverlaysForEmui(context, requestCode);
         }
         if (RomUtil.isFlyme()) {
-            return manageDrawOverlaysForFlyme(context);
+            return manageDrawOverlaysForFlyme(context, requestCode);
         }
         if (RomUtil.isOppo()) {
-            return manageDrawOverlaysForOppo(context);
+            return manageDrawOverlaysForOppo(context, requestCode);
         }
         if (RomUtil.isVivo()) {
-            return manageDrawOverlaysForVivo(context);
+            return manageDrawOverlaysForVivo(context, requestCode);
         }
         if (RomUtil.isQiku()) {
-            return manageDrawOverlaysForQihu(context);
+            return manageDrawOverlaysForQihu(context, requestCode);
         }
         if (RomUtil.isSmartisan()) {
-            return manageDrawOverlaysForSmartisan(context);
+            return manageDrawOverlaysForSmartisan(context, requestCode);
         }
         return false;
     }
@@ -141,10 +150,14 @@ public class SettingsCompat {
         return false;
     }
 
-    private static boolean startSafely(Context context, Intent intent) {
+    private static boolean startSafely(Context context, Intent intent, int requestCode) {
         if (context.getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY).size() > 0) {
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(intent);
+            if (context instanceof Activity) {
+                ((Activity) context).startActivityForResult(intent, requestCode);
+            } else {
+                context.startActivity(intent);
+            }
             return true;
         } else {
             Log.e(TAG, "Intent is not available! " + intent);
@@ -154,15 +167,15 @@ public class SettingsCompat {
 
 
     // 小米
-    private static boolean manageDrawOverlaysForMiui(Context context) {
+    private static boolean manageDrawOverlaysForMiui(Context context, int requestCode) {
         Intent intent = new Intent("miui.intent.action.APP_PERM_EDITOR");
         intent.putExtra("extra_pkgname", context.getPackageName());
         intent.setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.AppPermissionsEditorActivity");
-        if (startSafely(context, intent)) {
+        if (startSafely(context, intent, requestCode)) {
             return true;
         }
         intent.setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity");
-        if (startSafely(context, intent)) {
+        if (startSafely(context, intent, requestCode)) {
             return true;
         }
         // miui v5 的支持的android版本最高 4.x
@@ -170,7 +183,7 @@ public class SettingsCompat {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
             Intent intent1 = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
             intent1.setData(Uri.fromParts("package", context.getPackageName(), null));
-            return startSafely(context, intent1);
+            return startSafely(context, intent1, requestCode);
         }
         return false;
     }
@@ -178,79 +191,79 @@ public class SettingsCompat {
     private final static String HUAWEI_PACKAGE = "com.huawei.systemmanager";
 
     // 华为
-    private static boolean manageDrawOverlaysForEmui(Context context) {
+    private static boolean manageDrawOverlaysForEmui(Context context, int requestCode) {
         Intent intent = new Intent();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             intent.setClassName(HUAWEI_PACKAGE, "com.huawei.systemmanager.addviewmonitor.AddViewMonitorActivity");
-            if (startSafely(context, intent)) {
+            if (startSafely(context, intent, requestCode)) {
                 return true;
             }
         }
         // Huawei Honor P6|4.4.4|3.0
         intent.setClassName(HUAWEI_PACKAGE, "com.huawei.notificationmanager.ui.NotificationManagmentActivity");
         intent.putExtra("showTabsNumber", 1);
-        if (startSafely(context, intent)) {
+        if (startSafely(context, intent, requestCode)) {
             return true;
         }
         intent.setClassName(HUAWEI_PACKAGE, "com.huawei.permissionmanager.ui.MainActivity");
-        if (startSafely(context, intent)) {
+        if (startSafely(context, intent, requestCode)) {
             return true;
         }
         return false;
     }
 
     // VIVO
-    private static boolean manageDrawOverlaysForVivo(Context context) {
+    private static boolean manageDrawOverlaysForVivo(Context context, int requestCode) {
         // 不支持直接到达悬浮窗设置页，只能到 i管家 首页
         Intent intent = new Intent("com.iqoo.secure");
         intent.setClassName("com.iqoo.secure", "com.iqoo.secure.MainActivity");
         // com.iqoo.secure.ui.phoneoptimize.SoftwareManagerActivity
         // com.iqoo.secure.ui.phoneoptimize.FloatWindowManager
-        return startSafely(context, intent);
+        return startSafely(context, intent, requestCode);
     }
 
     // OPPO
-    private static boolean manageDrawOverlaysForOppo(Context context) {
+    private static boolean manageDrawOverlaysForOppo(Context context, int requestCode) {
         Intent intent = new Intent();
         intent.putExtra("packageName", context.getPackageName());
         // OPPO A53|5.1.1|2.1
         intent.setAction("com.oppo.safe");
         intent.setClassName("com.oppo.safe", "com.oppo.safe.permission.floatwindow.FloatWindowListActivity");
-        if (startSafely(context, intent)) {
+        if (startSafely(context, intent, requestCode)) {
             return true;
         }
         // OPPO R7s|4.4.4|2.1
         intent.setAction("com.color.safecenter");
         intent.setClassName("com.color.safecenter", "com.color.safecenter.permission.floatwindow.FloatWindowListActivity");
-        if (startSafely(context, intent)) {
+        if (startSafely(context, intent, requestCode)) {
             return true;
         }
         intent.setAction("com.coloros.safecenter");
         intent.setClassName("com.coloros.safecenter", "com.coloros.safecenter.sysfloatwindow.FloatWindowListActivity");
-        return startSafely(context, intent);
+        return startSafely(context, intent, requestCode);
     }
 
     // 魅族
-    private static boolean manageDrawOverlaysForFlyme(Context context) {
+    private static boolean manageDrawOverlaysForFlyme(Context context, int requestCode) {
         Intent intent = new Intent("com.meizu.safe.security.SHOW_APPSEC");
         intent.setClassName("com.meizu.safe", "com.meizu.safe.security.AppSecActivity");
         intent.putExtra("packageName", context.getPackageName());
-        return startSafely(context, intent);
+        return startSafely(context, intent, requestCode);
     }
 
     // 360
-    private static boolean manageDrawOverlaysForQihu(Context context) {
+    private static boolean manageDrawOverlaysForQihu(Context context, int requestCode) {
         Intent intent = new Intent();
         intent.setClassName("com.android.settings", "com.android.settings.Settings$OverlaySettingsActivity");
-        if (startSafely(context, intent)) {
+        if (startSafely(context, intent, requestCode)) {
             return true;
         }
         intent.setClassName("com.qihoo360.mobilesafe", "com.qihoo360.mobilesafe.ui.index.AppEnterActivity");
-        return startSafely(context, intent);
+        return startSafely(context, intent, requestCode);
     }
 
     // 锤子
-    private static boolean manageDrawOverlaysForSmartisan(Context context) {
+    private static boolean manageDrawOverlaysForSmartisan(Context context, int requestCode) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             return false;
         }
@@ -259,7 +272,7 @@ public class SettingsCompat {
             Intent intent = new Intent("com.smartisanos.security.action.SWITCHED_PERMISSIONS_NEW");
             intent.setClassName("com.smartisanos.security", "com.smartisanos.security.SwitchedPermissions");
             intent.putExtra("index", 17); // 不同版本会不一样
-            return startSafely(context, intent);
+            return startSafely(context, intent, requestCode);
         } else {
             // 锤子 坚果|4.4.4|2.1.2
             Intent intent = new Intent("com.smartisanos.security.action.SWITCHED_PERMISSIONS");
@@ -268,7 +281,7 @@ public class SettingsCompat {
 
             //        Intent intent = new Intent("com.smartisanos.security.action.MAIN");
             //        intent.setClassName("com.smartisanos.security", "com.smartisanos.security.MainActivity");
-            return startSafely(context, intent);
+            return startSafely(context, intent, requestCode);
         }
     }
 }
