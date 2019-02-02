@@ -36,6 +36,7 @@ public class SettingsCompat {
 
     private static final int OP_WRITE_SETTINGS = 23;
     private static final int OP_SYSTEM_ALERT_WINDOW = 24;
+    private final static String HUAWEI_PACKAGE = "com.huawei.systemmanager";
 
     public static boolean canDrawOverlays(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -66,19 +67,32 @@ public class SettingsCompat {
     }
 
     public static void manageDrawOverlays(Context context, int requestCode) {
+        // for all device android > 8 use system way to detect
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
+            intent.setData(Uri.parse("package:" + context.getPackageName()));
+            startSafely(context, intent, requestCode, false);
+            return;
+        }
+
+        // try for different oem
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
             if (manageDrawOverlaysForRom(context, requestCode)) {
                 return;
             }
         }
+
+        // if use orm way check failed and android version >= 6 try to use system way
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION);
             intent.setData(Uri.parse("package:" + context.getPackageName()));
-            if (context instanceof Activity) {
-                ((Activity) context).startActivityForResult(intent, requestCode);
-            } else {
-                context.startActivity(intent);
-            }
+            startSafely(context, intent, requestCode, false);
+            return;
+        }
+
+        // try to grant permission directly
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            setDrawOverlays(context, true);
         }
     }
 
@@ -86,11 +100,7 @@ public class SettingsCompat {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Intent intent = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
             intent.setData(Uri.parse("package:" + context.getPackageName()));
-            if (context instanceof Activity) {
-                ((Activity) context).startActivityForResult(intent, requestCode);
-            } else {
-                context.startActivity(intent);
-            }
+            startSafely(context, intent, requestCode, false);
         }
     }
 
@@ -119,7 +129,6 @@ public class SettingsCompat {
         return false;
     }
 
-
     private static boolean checkOp(Context context, int op) {
         AppOpsManager manager = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
         try {
@@ -137,34 +146,43 @@ public class SettingsCompat {
             return false;
         }
 
-        AppOpsManager manager = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
         try {
+            AppOpsManager manager = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
             Method method = AppOpsManager.class.getDeclaredMethod("setMode", int.class, int.class, String.class, int.class);
             method.invoke(manager, op, Binder.getCallingUid(), context.getPackageName(), allowed ? AppOpsManager.MODE_ALLOWED : AppOpsManager
                     .MODE_IGNORED);
             return true;
         } catch (Exception e) {
             Log.e(TAG, Log.getStackTraceString(e));
-
         }
         return false;
     }
 
     private static boolean startSafely(Context context, Intent intent, int requestCode) {
+        return startSafely(context, intent, requestCode, true);
+    }
+
+    private static boolean startSafely(Context context, Intent intent, int requestCode, boolean newTask) {
         if (context.getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY).size() > 0) {
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            if (context instanceof Activity) {
-                ((Activity) context).startActivityForResult(intent, requestCode);
-            } else {
-                context.startActivity(intent);
+            try {
+                if (newTask) {
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                }
+                if (context instanceof Activity) {
+                    ((Activity) context).startActivityForResult(intent, requestCode);
+                } else {
+                    context.startActivity(intent);
+                }
+                return true;
+            } catch (Exception e) {
+                Log.e(TAG, Log.getStackTraceString(e));
+                return false;
             }
-            return true;
         } else {
             Log.e(TAG, "Intent is not available! " + intent);
             return false;
         }
     }
-
 
     // 小米
     private static boolean manageDrawOverlaysForMiui(Context context, int requestCode) {
@@ -187,8 +205,6 @@ public class SettingsCompat {
         }
         return false;
     }
-
-    private final static String HUAWEI_PACKAGE = "com.huawei.systemmanager";
 
     // 华为
     private static boolean manageDrawOverlaysForEmui(Context context, int requestCode) {
